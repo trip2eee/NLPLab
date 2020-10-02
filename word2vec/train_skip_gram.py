@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     print(corpus_index)
 
-    model = SkipGram(vocab_size=vocab_size, embedding_dim=7)
+    model = SkipGram(vocab_size=vocab_size, embedding_dim=2)
     loss_object = tf.keras.losses.BinaryCrossentropy()
     optimizer = tf.keras.optimizers.Adam()
 
