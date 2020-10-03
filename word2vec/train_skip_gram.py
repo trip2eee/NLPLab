@@ -145,14 +145,23 @@ if __name__ == "__main__":
                 labels.append([1, 1])
 
                 # negative
-                # select a random word.
-                idx_out = np.random.choice(vocab_size, size=1, p=pdf)
-                idx_out = int(idx_out[0])
-                # if the selected word is not the true word.
-                if idx_out != c[i]:
-                    w_neg = [idx_out, c0, c1]
-                    words.append(w_neg)
-                    labels.append([0, 0])
+                # select random words.
+                idx_out = np.random.choice(vocab_size, size=2, p=pdf)
+
+                # determine target output.
+                if idx_out[0] in [c0, c1]:
+                    t0 = 1
+                else:
+                    t0 = 0
+                
+                if idx_out[1] in [c0, c1]:
+                    t1 = 1
+                else:
+                    t1 = 0
+
+                w_neg = [c[i], idx_out[0], idx_out[1]]
+                words.append(w_neg)
+                labels.append([t0, t1])
 
             words = np.array(words).astype(np.int32)
             labels = np.array(labels).astype(np.int32)
