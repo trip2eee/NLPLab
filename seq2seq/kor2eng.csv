@@ -10,7 +10,7 @@ KOR,ENG
 자는거야?,Are you sleeping?
 나는 자고 있어.,I am sleeping.
 어떻게 해?,How to do?
-고기,meet
+고기,meat
 새,bird
 개,dog
 고양이,cat
@@ -67,7 +67,7 @@ KOR,ENG
 그녀는 생선을 좋아해.,She likes fish.
 그녀는 물고기를 좋아해.,She likes fish.
 그는 TV를 보고 있어.,He is watching TV.
-뭐 보고 있어?,Wat are you watching?
+뭐 보고 있어?,What are you watching?
 그는 축구를 좋아해.,He likes soccer.
 그녀는 야구를 좋아해.,She likes baseball.
 나는 고기를 먹어.,I eat meat.
@@ -138,6 +138,7 @@ KOR,ENG
 어두워,dark
 아침은 어둡지 않아.,morning is not dark.
 남자는 여자가 아니야.,A man is not a woman.
+여자는 남자가 아니야.,A woman is not a man.
 돼지고기는 소고기가 아니야.,Pork is not beef.
 소고기는 돼지고기가 아니야.,Beef is not pork.
 밤은 어두워.,night is dark.
