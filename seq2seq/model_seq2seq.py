@@ -1,3 +1,9 @@
+"""
+@file  model_seq2seq.py
+@brief Sequence to sequence model implementation.
+@reference https://github.com/NLP-kr/tensorflow-ml-nlp-tf2
+"""
+
 import tensorflow as tf
 
 class Encoder(tf.keras.layers.Layer):
@@ -76,7 +82,7 @@ class seq2seq(tf.keras.Model):
         self.encoder = Encoder(vocab_size, embedding_dim, enc_units, batch_size)
         self.decoder = Decoder(vocab_size, embedding_dim, dec_units, batch_size)
 
-        # TODO: To clearly understand from_logits
+        # from_logits=True: apply softmax in loss computation.
         self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
         self.train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')
 
