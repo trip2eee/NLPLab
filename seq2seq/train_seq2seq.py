@@ -60,7 +60,7 @@ if __name__ == "__main__":
         cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path, monitor='val_custom_accuracy', verbose=1, save_best_only=True, save_weights_only=True)
         earlystop_callback = tf.keras.callbacks.EarlyStopping(monitor='val_custom_accuracy', min_delta=0.001, patience=50)
 
-        history = model.fit([enc_inputs, dec_inputs], dec_targets, batch_size=1, epochs=300, validation_data=([enc_inputs_val, dec_inputs_val], dec_targets_val), callbacks=[cp_callback])
+        history = model.fit([enc_inputs, dec_inputs], dec_targets, batch_size=1, epochs=500, validation_data=([enc_inputs_val, dec_inputs_val], dec_targets_val), callbacks=[cp_callback])
     
     # Test the trained model.
     model.load_weights(checkpoint_path)

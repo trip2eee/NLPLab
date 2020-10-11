@@ -30,13 +30,13 @@ def create_padding_mask(seq):
 
 def create_look_ahead_mask(size):
 
-    # create a matrix in which the lower triangular part is filled with 1s.
-    # num_lower < 0: Copy entire lower triangular.
+    # tf.linalg.band_part: create a matrix in which the lower triangular part is filled with 1s (num_lower < 0: Copy entire lower triangular).    
     mask = 1 - tf.linalg.band_part(input=tf.ones((size, size)), num_lower=-1, num_upper=0)
 
-    # TODO: To check the output.
-    # To fill the upper triangular part with 1s, lower triangular part with 0s.
-    #mask = 1 - mask
+    # mask = [[0 1 1 1]
+    #         [0 0 1 1]
+    #         [0 0 0 1]
+    #         [0 0 0 0]]
     return mask
 
 def create_masks(input, target):
@@ -56,7 +56,7 @@ def create_masks(input, target):
 
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-def point_wise_feed_forward_network(d_model, dff):
+def position_wise_feed_forward_network(d_model, dff):
     net = tf.keras.Sequential([
         tf.keras.layers.Dense(dff, activation='relu'),
         tf.keras.layers.Dense(d_model)
@@ -65,13 +65,12 @@ def point_wise_feed_forward_network(d_model, dff):
     return net
 
 def get_angles(pos, i, d_model):
-    angle_rates = 1 / np.power(10000, (2 * i//2) / np.float32(d_model))     # TODO: to check operator priority.
-    return pos * angle_rates
+    # pos / (10000^(2*i/d_model))
+    angle_rates = pos / np.power(10000, (2 * i) / np.float32(d_model))
+    return angle_rates
 
-def positional_encoding(position, d_model):
-    # TODO: To check np.newaxis
-    # np.newaxis creates a new axis.
-    # shape: (batch, sequence, feature)
+def positional_encoding(position, d_model):    
+    # np.arange(2) -> [0, 1], np.arange(2)[:,np.newaxis] -> [[0], [1]]
     angle_rads = get_angles(np.arange(position)[:, np.newaxis],
                             np.arange(d_model)[np.newaxis,:],
                             d_model)
@@ -79,14 +78,16 @@ def positional_encoding(position, d_model):
     angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
     angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
 
-    # TODO: To check ...
+    # angle_rads.shape:   (sequence, feature)
+    # pos_encoding.shape: (batch, sequence, feature)
+    # The ellipsis syntax(...) selects full any remaining unspecified dimensions.
     pos_encoding = angle_rads[np.newaxis, ...]
 
     return tf.cast(pos_encoding, dtype=tf.float32)
 
 
 class MultiHeadAttention(tf.keras.layers.Layer):
-    # TODO: To check what **kargs is.
+    # **kargs: keyword argument - receives dictionary as input.
     def __init__(self, **kargs):
         super(MultiHeadAttention, self).__init__()
 
@@ -103,7 +104,6 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         self.dense = tf.keras.layers.Dense(self.d_model)
 
-    # TODO: To check the output of this method.
     # This method splits input tensor of shape (batch, seqeunce, feature) into (batch, head, sequence, feature)
     def split_heads(self, x, batch_size):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
@@ -130,14 +130,16 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         return output, attention_weights
 
 
+"""
+Encoder layer.
+"""
 class EncoderLayer(tf.keras.layers.Layer):
     def __init__(self, **kargs):
         super(EncoderLayer, self).__init__()
 
-        # TODO: To check what **kargs is.
         self.mha = MultiHeadAttention(**kargs)
 
-        self.ffn = point_wise_feed_forward_network(kargs['d_model'], kargs['dff'])
+        self.ffn = position_wise_feed_forward_network(kargs['d_model'], kargs['dff'])
 
         self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -146,6 +148,7 @@ class EncoderLayer(tf.keras.layers.Layer):
         self.dropout2 = tf.keras.layers.Dropout(kargs['rate'])
 
     def call(self, x, mask):
+        # value, key, query: x
         attn_output, _ = self.mha(x, x, x, mask)
         attn_output = self.dropout1(attn_output)
         out1 = self.layernorm1(x + attn_output)
@@ -156,12 +159,15 @@ class EncoderLayer(tf.keras.layers.Layer):
 
         return out2
 
+"""
+Encoder - a stack of N identical encoder layers.
+"""
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, **kargs):
         super(Encoder, self).__init__()
 
         self.d_model = kargs['d_model']
-        self.num_layers = kargs['num_layers']       # TODO: to check the meaning of num_layers. feed forward layer?
+        self.num_layers = kargs['num_layers']       # The number of layers in the encoder stack (N in the paper).
 
         self.embedding = tf.keras.layers.Embedding(kargs['input_vocab_size'], self.d_model)
         self.pos_encoding = positional_encoding(kargs['maximum_position_encoding'], self.d_model)
@@ -174,7 +180,7 @@ class Encoder(tf.keras.layers.Layer):
 
         x = self.embedding(x)
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        x += self.pos_encoding[:, :seq_len, :]      # TODO: to check the result.
+        x += self.pos_encoding[:, :seq_len, :]      # shape: (batch, sequence, feature)
 
         x = self.dropout(x)
 
@@ -183,6 +189,9 @@ class Encoder(tf.keras.layers.Layer):
 
         return x
 
+"""
+Decoder layer
+"""
 class DecoderLayer(tf.keras.layers.Layer):
     def __init__(self, **kargs):
         super(DecoderLayer, self).__init__()
@@ -190,7 +199,7 @@ class DecoderLayer(tf.keras.layers.Layer):
         self.mha1 = MultiHeadAttention(**kargs)
         self.mha2 = MultiHeadAttention(**kargs)
 
-        self.ffn = point_wise_feed_forward_network(kargs['d_model'], kargs['dff'])
+        self.ffn = position_wise_feed_forward_network(kargs['d_model'], kargs['dff'])
 
         self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
@@ -201,10 +210,11 @@ class DecoderLayer(tf.keras.layers.Layer):
         self.dropout3 = tf.keras.layers.Dropout(kargs['rate'])
 
     def call(self, x, enc_output, look_ahead_mask, padding_mask):
+        # value, key, query: x
         attn1, attn_weights_block1 = self.mha1(x, x, x, look_ahead_mask)
         attn1 = self.dropout1(attn1)
         out1 = self.layernorm1(attn1 + x)
-
+        # value, key: enc_output, query: out1
         attn2, attn_weights_block2 = self.mha2(enc_output, enc_output, out1, padding_mask)
         attn2 = self.dropout2(attn2)
         out2 = self.layernorm2(attn2 + out1)
@@ -215,12 +225,15 @@ class DecoderLayer(tf.keras.layers.Layer):
 
         return out3, attn_weights_block1, attn_weights_block2
 
+"""
+Decoder - a stack of N identical decoder layers.
+"""
 class Decoder(tf.keras.layers.Layer):
     def __init__(self, **kargs):
         super(Decoder, self).__init__()
 
         self.d_model = kargs['d_model']
-        self.num_layers = kargs['num_layers']
+        self.num_layers = kargs['num_layers']       # The number of layers in the encoder stack (N in the paper).
 
         self.embedding = tf.keras.layers.Embedding(kargs['target_vocab_size'], self.d_model)
         self.pos_encoding = positional_encoding(kargs['maximum_position_encoding'], self.d_model)
@@ -254,12 +267,12 @@ class Transformer(tf.keras.Model):
         self.encoder = Encoder(**kargs)
         self.decoder = Decoder(**kargs)
 
-        self.final_layer = tf.keras.layers.Dense(kargs['target_vocab_size'])
+        self.final_layer = tf.keras.layers.Dense(kargs['target_vocab_size'])        # activation: linear - not normalized.
 
         self.max_seq_len = kargs['max_seq_len']
         self.start_of_sentence = kargs['idx_sos']
 
-        # from_logits=True: apply softmax in loss computation.
+        # from_logits=True: The output is not normalized. Softmax will be applied in the loss function.
         self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
         self.train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')
 
@@ -284,7 +297,7 @@ class Transformer(tf.keras.Model):
         for t in range(0, self.max_seq_len):
             dec_output, _ = self.decoder(target, enc_output, look_ahead_mask, dec_padding_mask)
             final_output = self.final_layer(dec_output)
-            outputs = tf.argmax(final_output, -1).numpy()
+            outputs = tf.argmax(final_output, -1).numpy()       # retrieve the word with the highest probability. The output don't have to be normalized.
             pred_token = outputs[0][-1]
 
             if pred_token == self.end_token_idx:

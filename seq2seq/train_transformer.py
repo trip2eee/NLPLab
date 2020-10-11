@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     
     kargs = {'model_name': model_name,
-    'num_layers': 2,
+    'num_layers': 2,            # The number of layers in the encoder/decoder stack (N in the paper).
     'd_model': 512,
     'num_heads': 8,
     'dff': 2048,

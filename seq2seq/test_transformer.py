@@ -53,6 +53,7 @@ if __name__ == "__main__":
     'idx_sos': word2index[prep.SOS]
     }
 
+    # **kargs: keyword argument - receives dictionary as input.
     model = Transformer(**kargs)
     enc_input = enc_inputs_val[0]
     enc_input = np.reshape(enc_input, (1, enc_input.shape[0]))
