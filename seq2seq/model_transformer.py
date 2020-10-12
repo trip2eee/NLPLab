@@ -8,16 +8,18 @@ import tensorflow as tf
 import numpy as np
 
 def scaled_dot_product_attention(q, k, v, mask):
+    # q, k, v: (batch_size, num_heads, seq_len, d_model / num_heads)
+    # matmul_qk: (batch_size, num_heads, seq_len, seq_len)
     matmul_qk = tf.matmul(q, k, transpose_b=True)
 
     dk = tf.cast(tf.shape(k)[-1], tf.float32)
-    scaled_attention_logits=  matmul_qk / tf.math.sqrt(dk)
-
+    scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
+    
     if mask is not None:
         scaled_attention_logits += (mask * -1e9)        # assign very small number to the upper triangular part.
 
-    attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)
-    output = tf.matmul(attention_weights, v)
+    attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)     # weights for the masked positions = 0.
+    output = tf.matmul(attention_weights, v)        # (batch_size, num_heads, seq_len, d_model / num_heads)
 
     return output, attention_weights
 
@@ -78,8 +80,8 @@ def positional_encoding(position, d_model):
     angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
     angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
 
-    # angle_rads.shape:   (sequence, feature)
-    # pos_encoding.shape: (batch, sequence, feature)
+    # angle_rads.shape:   (seq_len, d_model)
+    # pos_encoding.shape: (batch_size, seq_len, d_model)
     # The ellipsis syntax(...) selects full any remaining unspecified dimensions.
     pos_encoding = angle_rads[np.newaxis, ...]
 
@@ -141,6 +143,8 @@ class EncoderLayer(tf.keras.layers.Layer):
 
         self.ffn = position_wise_feed_forward_network(kargs['d_model'], kargs['dff'])
 
+        # Normalization layers apply a transformation that maintains the mean activation within each example 
+        # close to 0 and the activation standard deviation close to 1.
         self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
         self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
 
@@ -180,7 +184,7 @@ class Encoder(tf.keras.layers.Layer):
 
         x = self.embedding(x)
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        x += self.pos_encoding[:, :seq_len, :]      # shape: (batch, sequence, feature)
+        x += self.pos_encoding[:, :seq_len, :]      # shape: (batch_size, seq_len, d_model)
 
         x = self.dropout(x)
 

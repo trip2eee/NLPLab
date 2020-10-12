@@ -3,7 +3,6 @@ import pandas as pd
 from konlpy.tag import Okt
 import pickle
 
-#FILTERS = "([~.,!?\"':;)(])"
 FILTERS = "([.,\"':;)(])"
 MAX_SEQUENCE = 10
 
